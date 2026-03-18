@@ -1,0 +1,532 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Windows Security Alert</title>
+<link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Roboto+Mono:wght@300;400;700&display=swap" rel="stylesheet">
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  :root {
+    --green: #00ff41;
+    --red: #cc0000;
+    --bg: #0a0a0a;
+    --text: #c8c8c8;
+  }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Roboto Mono', monospace;
+    overflow: hidden;
+    height: 100vh;
+    user-select: none;
+  }
+
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background: repeating-linear-gradient(0deg, transparent, transparent 3px, rgba(0,0,0,0.04) 3px, rgba(0,0,0,0.04) 4px);
+    pointer-events: none;
+    z-index: 9999;
+  }
+
+  canvas#bg {
+    position: fixed;
+    inset: 0;
+    width: 100%; height: 100%;
+    z-index: 0;
+    opacity: 0.06;
+  }
+
+  .desktop {
+    position: relative;
+    z-index: 10;
+    height: 100vh;
+    display: grid;
+    grid-template-columns: 1fr 340px;
+    grid-template-rows: 28px 1fr 24px;
+  }
+
+  .topbar {
+    grid-column: 1 / -1;
+    background: #111;
+    border-bottom: 1px solid #1f1f1f;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 12px;
+    font-size: 10px;
+    color: #3a3a3a;
+    letter-spacing: 0.5px;
+  }
+  .topbar .left { display: flex; gap: 20px; }
+  .topbar .alert-indicator { color: var(--red); animation: blink-slow 1.2s infinite; }
+
+  .terminal {
+    background: #050505;
+    border-right: 1px solid #151515;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+
+  .terminal-header {
+    background: #111;
+    border-bottom: 1px solid #1a1a1a;
+    padding: 6px 14px;
+    font-size: 10px;
+    color: #2a2a2a;
+    display: flex;
+    justify-content: space-between;
+    letter-spacing: 1px;
+  }
+  .terminal-header .active { color: var(--red); }
+
+  .terminal-body {
+    flex: 1;
+    padding: 20px 24px;
+    overflow: hidden;
+  }
+
+  .breach-title {
+    font-size: 10px;
+    letter-spacing: 3px;
+    color: #252525;
+    margin-bottom: 28px;
+    text-transform: uppercase;
+  }
+
+  .hacked-main {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: clamp(34px, 5vw, 68px);
+    color: var(--red);
+    letter-spacing: 2px;
+    line-height: 1;
+    text-shadow: 0 0 40px rgba(200,0,0,0.25);
+    animation: glitch-text 6s infinite;
+    position: relative;
+    margin-bottom: 8px;
+  }
+
+  .hacked-main::before, .hacked-main::after {
+    content: 'YOU HAVE BEEN HACKED';
+    position: absolute;
+    top: 0; left: 0;
+    width: 100%;
+  }
+  .hacked-main::before {
+    color: #00ffff;
+    animation: glitch-clip-1 6s infinite;
+    left: 2px;
+    opacity: 0.6;
+  }
+  .hacked-main::after {
+    color: var(--red);
+    animation: glitch-clip-2 6s infinite;
+    left: -2px;
+    opacity: 0.6;
+  }
+
+  .hacked-sub {
+    font-size: 12px;
+    color: #2e2e2e;
+    letter-spacing: 5px;
+    text-transform: uppercase;
+    margin-bottom: 36px;
+  }
+
+  .log-title {
+    font-size: 9px;
+    letter-spacing: 3px;
+    color: #222;
+    border-bottom: 1px solid #141414;
+    padding-bottom: 6px;
+    margin-bottom: 14px;
+    text-transform: uppercase;
+  }
+
+  .log-line {
+    font-size: 11px;
+    color: #2a2a2a;
+    line-height: 2.1;
+    display: flex;
+    gap: 10px;
+    opacity: 0;
+    animation: fade-in 0.2s forwards;
+  }
+  .log-line .ts { color: #1e1e1e; min-width: 78px; }
+  .log-line .ok  { color: #154d15; }
+  .log-line .err { color: #660000; }
+  .log-line .wrn { color: #4d3800; }
+  .log-line.on { color: #4a4a4a; }
+  .log-line.on .ts { color: #303030; }
+  .log-line.bright { color: #888; }
+  .log-line.bright .ok { color: #22882a; }
+  .log-line.bright .err { color: #aa0000; }
+
+  .perp-section {
+    border: 1px solid #1a0000;
+    background: rgba(18,0,0,0.6);
+    padding: 18px 22px;
+    margin-top: 24px;
+  }
+  .perp-label {
+    font-size: 9px;
+    letter-spacing: 3px;
+    color: #380000;
+    margin-bottom: 10px;
+    text-transform: uppercase;
+  }
+  .perp-name {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 34px;
+    color: #ddd;
+    letter-spacing: 8px;
+    text-shadow: 0 0 30px rgba(255,255,255,0.1);
+  }
+  .perp-name em { color: var(--red); font-style: normal; text-shadow: 0 0 20px rgba(200,0,0,0.4); }
+
+  .sidebar {
+    background: #080808;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+
+  .panel {
+    border-bottom: 1px solid #0f0f0f;
+    padding: 14px 16px;
+  }
+  .panel-title {
+    font-size: 9px;
+    letter-spacing: 3px;
+    color: #1e1e1e;
+    text-transform: uppercase;
+    margin-bottom: 14px;
+  }
+
+  .progress-item { margin-bottom: 13px; }
+  .progress-label {
+    font-size: 10px;
+    color: #2e2e2e;
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 5px;
+  }
+  .progress-label .pct { color: var(--red); }
+  .progress-track { background: #0e0e0e; height: 2px; width: 100%; }
+  .progress-fill {
+    height: 100%;
+    background: var(--red);
+    box-shadow: 0 0 5px rgba(200,0,0,0.3);
+    transition: width 0.3s;
+    width: 0%;
+  }
+
+  .info-row {
+    display: flex;
+    justify-content: space-between;
+    font-size: 10px;
+    color: #222;
+    line-height: 2.3;
+  }
+  .info-row .val { color: #333; }
+  .info-row .val.red { color: #580000; }
+  .info-row .val.live { color: #3a3a3a; }
+
+  .warning-panel {
+    background: #070000;
+    border-top: 1px solid #200000;
+    padding: 18px 16px;
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+  }
+  .warning-header {
+    font-size: 9px;
+    letter-spacing: 2px;
+    color: var(--red);
+    margin-bottom: 14px;
+    animation: blink-slow 2s infinite;
+    text-transform: uppercase;
+  }
+  .warning-text {
+    font-size: 10px;
+    color: #242424;
+    line-height: 2;
+    margin-bottom: 22px;
+  }
+  .warning-text strong { color: #383838; }
+  .counter-display {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 40px;
+    color: var(--red);
+    text-align: center;
+    text-shadow: 0 0 18px rgba(200,0,0,0.3);
+    letter-spacing: 6px;
+    margin: 6px 0;
+  }
+  .counter-label {
+    font-size: 9px;
+    color: #222;
+    text-align: center;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+  }
+
+  .statusbar {
+    grid-column: 1 / -1;
+    background: #0a0000;
+    border-top: 1px solid #1e0000;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 16px;
+    font-size: 9px;
+    letter-spacing: 1px;
+  }
+  .statusbar .left { color: var(--red); display: flex; gap: 24px; align-items: center; }
+  .statusbar .right { color: #252525; display: flex; gap: 20px; }
+  .pulse {
+    display: inline-block;
+    width: 5px; height: 5px;
+    background: var(--red);
+    border-radius: 50%;
+    margin-right: 6px;
+    animation: pulse-dot 1s infinite;
+  }
+
+  @keyframes blink-slow {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.25; }
+  }
+  @keyframes pulse-dot {
+    0%, 100% { opacity: 1; transform: scale(1); }
+    50% { opacity: 0.3; transform: scale(0.6); }
+  }
+  @keyframes fade-in {
+    to { opacity: 1; }
+  }
+  @keyframes glitch-text {
+    0%, 90%, 100% { transform: translateX(0); }
+    91% { transform: translateX(-2px); filter: blur(0.4px); }
+    92% { transform: translateX(2px); }
+    93% { transform: translateX(0); filter: none; }
+  }
+  @keyframes glitch-clip-1 {
+    0%, 89%, 95%, 100% { clip: rect(0,0,0,0); }
+    90% { clip: rect(18px, 1000px, 38px, 0); transform: translateX(-2px); }
+    92% { clip: rect(4px, 1000px, 18px, 0); }
+    93% { clip: rect(0,0,0,0); }
+  }
+  @keyframes glitch-clip-2 {
+    0%, 89%, 95%, 100% { clip: rect(0,0,0,0); }
+    90% { clip: rect(48px, 1000px, 76px, 0); transform: translateX(2px); }
+    92% { clip: rect(68px, 1000px, 86px, 0); }
+    93% { clip: rect(0,0,0,0); }
+  }
+</style>
+</head>
+<body>
+<canvas id="bg"></canvas>
+
+<div class="desktop">
+
+  <div class="topbar">
+    <div class="left">
+      <span>KERNEL 5.15.0-BREACH</span>
+      <span>PROC: 2,048</span>
+      <span>MEM: 16.0GB</span>
+      <span class="alert-indicator">[ UNAUTHORIZED ACCESS ACTIVE ]</span>
+    </div>
+    <div style="color:#2a2a2a;font-size:10px" id="clock-top">--:--:--</div>
+  </div>
+
+  <div class="terminal">
+    <div class="terminal-header">
+      <span>root@victim:~#</span>
+      <span class="active">SESSION HIJACKED</span>
+    </div>
+    <div class="terminal-body">
+      <div class="breach-title">// SECURITY BREACH LOG &mdash; CLASSIFIED</div>
+
+      <div class="hacked-main">YOU HAVE BEEN HACKED</div>
+      <div class="hacked-sub">All systems compromised</div>
+
+      <div class="log-title">// Intrusion Timeline</div>
+
+      <div class="log-line" id="l1"><span class="ts">00:00:01</span><span class="ok">[OK]</span> Firewall bypassed via CVE-2024-8871</div>
+      <div class="log-line" id="l2"><span class="ts">00:00:03</span><span class="ok">[OK]</span> Root access granted</div>
+      <div class="log-line" id="l3"><span class="ts">00:00:04</span><span class="ok">[OK]</span> SSH tunnel established — encrypted</div>
+      <div class="log-line" id="l4"><span class="ts">00:00:06</span><span class="ok">[OK]</span> Keylogger installed — PID 4421</div>
+      <div class="log-line" id="l5"><span class="ts">00:00:07</span><span class="err">[!!]</span> Webcam accessed — recording started</div>
+      <div class="log-line" id="l6"><span class="ts">00:00:09</span><span class="ok">[OK]</span> Password vault decrypted — 247 entries</div>
+      <div class="log-line" id="l7"><span class="ts">00:00:11</span><span class="ok">[OK]</span> Browser history extracted — 14,302 records</div>
+      <div class="log-line" id="l8"><span class="ts">00:00:14</span><span class="wrn">[--]</span> Uploading to remote server... <span id="upload-pct">0%</span></div>
+      <div class="log-line" id="l9"><span class="ts">00:00:16</span><span class="err">[!!]</span> Local backups wiped</div>
+      <div class="log-line" id="l10"><span class="ts">00:00:18</span><span class="ok">[OK]</span> Persistence established — boot hook injected</div>
+
+      <div class="perp-section">
+        <div class="perp-label">// Attacker Signature</div>
+        <div class="perp-name"><em>by</em> ADAM</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="sidebar">
+
+    <div class="panel">
+      <div class="panel-title">// Data Exfiltration</div>
+      <div class="progress-item">
+        <div class="progress-label"><span>Passwords</span><span class="pct" id="pct1">0%</span></div>
+        <div class="progress-track"><div class="progress-fill" id="bar1"></div></div>
+      </div>
+      <div class="progress-item">
+        <div class="progress-label"><span>Documents</span><span class="pct" id="pct2">0%</span></div>
+        <div class="progress-track"><div class="progress-fill" id="bar2"></div></div>
+      </div>
+      <div class="progress-item">
+        <div class="progress-label"><span>Photos</span><span class="pct" id="pct3">0%</span></div>
+        <div class="progress-track"><div class="progress-fill" id="bar3"></div></div>
+      </div>
+      <div class="progress-item">
+        <div class="progress-label"><span>System Files</span><span class="pct" id="pct4">0%</span></div>
+        <div class="progress-track"><div class="progress-fill" id="bar4"></div></div>
+      </div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-title">// System Status</div>
+      <div class="info-row"><span>Antivirus</span><span class="val red">DISABLED</span></div>
+      <div class="info-row"><span>Firewall</span><span class="val red">BYPASSED</span></div>
+      <div class="info-row"><span>VPN</span><span class="val red">KILLED</span></div>
+      <div class="info-row"><span>Webcam</span><span class="val red">ACTIVE</span></div>
+      <div class="info-row"><span>Microphone</span><span class="val red">ACTIVE</span></div>
+      <div class="info-row"><span>Location</span><span class="val live" id="fake-loc">TRIANGULATING...</span></div>
+      <div class="info-row"><span>Your IP</span><span class="val live" id="fake-ip">...</span></div>
+    </div>
+
+    <div class="warning-panel">
+      <div class="warning-header">[ CRITICAL ALERT ]</div>
+      <div class="warning-text">
+        Your device is under full remote control.<br>
+        All data is being transmitted.<br><br>
+        <strong>Do not close this window.</strong><br>
+        <strong>Do not disconnect from the internet.</strong>
+      </div>
+      <div class="counter-display" id="countdown">10:00</div>
+      <div class="counter-label">Until transfer complete</div>
+    </div>
+
+  </div>
+
+  <div class="statusbar">
+    <div class="left">
+      <span><span class="pulse"></span>BREACH ACTIVE</span>
+      <span>ADAM@REMOTE:~#</span>
+      <span id="bytes-sent">0 MB transferred</span>
+    </div>
+    <div class="right">
+      <span>CONN: ENCRYPTED / AES-256</span>
+      <span id="clock-bottom">--:--:--</span>
+    </div>
+  </div>
+
+</div>
+
+<script>
+// Matrix background
+const canvas = document.getElementById('bg');
+const ctx = canvas.getContext('2d');
+canvas.width = window.innerWidth;
+canvas.height = window.innerHeight;
+const cols = Math.floor(canvas.width / 14);
+const drops = Array(cols).fill(1);
+const chars = '01ADAMHACKED><{}[]BREACH01';
+function drawBg() {
+  ctx.fillStyle = 'rgba(0,0,0,0.07)';
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+  ctx.fillStyle = '#001500';
+  ctx.font = '12px Share Tech Mono';
+  drops.forEach((y, i) => {
+    ctx.fillText(chars[Math.floor(Math.random()*chars.length)], i*14, y*14);
+    if (y*14 > canvas.height && Math.random() > 0.975) drops[i] = 0;
+    drops[i]++;
+  });
+}
+setInterval(drawBg, 60);
+
+// Clock
+function updateClock() {
+  const t = new Date();
+  const s = [t.getHours(), t.getMinutes(), t.getSeconds()].map(n=>String(n).padStart(2,'0')).join(':');
+  document.getElementById('clock-top').textContent = s;
+  document.getElementById('clock-bottom').textContent = s;
+}
+setInterval(updateClock, 1000); updateClock();
+
+// Log lines appear one by one
+document.querySelectorAll('.log-line').forEach((el, i) => {
+  el.style.animationDelay = (i * 0.35) + 's';
+  setTimeout(() => el.classList.add(i >= 5 ? 'bright' : 'on'), i * 350 + 100);
+});
+
+// Upload percentage in log
+let uploadPct = 0;
+const uploadEl = document.getElementById('upload-pct');
+const uploadInterval = setInterval(() => {
+  if (uploadPct < 100) { uploadPct += 0.4; uploadEl.textContent = Math.floor(uploadPct) + '%'; }
+  else clearInterval(uploadInterval);
+}, 80);
+
+// Progress bars
+const barsData = [
+  { bar:'bar1', pct:'pct1', target:100, speed:0.9 },
+  { bar:'bar2', pct:'pct2', target:100, speed:0.55 },
+  { bar:'bar3', pct:'pct3', target:100, speed:0.7 },
+  { bar:'bar4', pct:'pct4', target:82,  speed:0.45 },
+];
+const cur = [0,0,0,0];
+setInterval(() => {
+  barsData.forEach((b,i) => {
+    if (cur[i] < b.target) {
+      cur[i] = Math.min(b.target, cur[i] + b.speed);
+      const v = Math.floor(cur[i]);
+      document.getElementById(b.bar).style.width = v + '%';
+      document.getElementById(b.pct).textContent = v + '%';
+    }
+  });
+}, 50);
+
+// Fake IP & location
+const ip = Array.from({length:4}, ()=>Math.floor(Math.random()*255)).join('.');
+setTimeout(() => {
+  document.getElementById('fake-ip').textContent = ip;
+  document.getElementById('fake-loc').textContent = 'LOCKED';
+}, 2200);
+
+// Bytes counter
+let mb = 0;
+setInterval(() => {
+  mb += Math.random() * 0.9 + 0.2;
+  document.getElementById('bytes-sent').textContent = mb.toFixed(1) + ' MB transferred';
+}, 350);
+
+// Countdown
+let secs = 600;
+function tick() {
+  const m = String(Math.floor(secs/60)).padStart(2,'0');
+  const s = String(secs%60).padStart(2,'0');
+  document.getElementById('countdown').textContent = m + ':' + s;
+  if (secs > 0) secs--;
+}
+setInterval(tick, 1000); tick();
+
+window.addEventListener('resize', () => { canvas.width = window.innerWidth; canvas.height = window.innerHeight; });
+</script>
+</body>
+</html>
